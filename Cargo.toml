@@ -13,13 +13,14 @@ path = "src/main.rs"
 
 [features]
 default = ["desktop"]
-desktop = ["wgame/desktop"]
-web = ["wgame/web"]
+desktop = ["wgame/desktop", "wgame-egui/desktop"]
+web = ["wgame/web", "wgame-egui/web"]
 
 [dependencies]
 phy = { path = "phy" }
 rand = { version = "0.10.2", default-features = false, features = ["std"] }
 wgame = { path = "wgame/wgame", default-features = false, features = [
     "shapes",
-    "typography",
 ] }
+
+wgame-egui = { path = "wgame/wgame-egui", default-features = false }

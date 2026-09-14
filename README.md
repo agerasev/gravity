@@ -31,8 +31,8 @@ Zoom in on the outer gas giants to see their moons.
   camera's world center and zoom. UI dimensions follow desktop scaling, and
   text is rasterized at the display resolution.
 - **Create:** **Launch body** is selected at startup. Click a
-  field and type to replace its value; Enter accepts, Tab advances, and Escape
-  restores that field's previous value. Set mass, color as `#RRGGBB`, and X/Y
+  field to edit it with normal text-selection controls; Tab advances between
+  widgets. Game shortcuts are inactive while editing. Set mass, color as `#RRGGBB`, and X/Y
   velocity in world units per second (positive X right, positive Y down).
 - **Launch:** click the world to place a body with the entered velocity, or drag
   from its spawn point in the desired direction. The arrow shows one second of
@@ -41,11 +41,15 @@ Zoom in on the outer gas giants to see their moons.
   temporarily pauses while aiming. Release over the panel or press Escape to
   cancel. Bodies can also be placed while manually paused.
 - **Pause:** Space or the panel button. Losing focus pauses automatically.
-  **P** toggles the panel; **Escape** cancels editing/dragging, otherwise closes.
+  **P** toggles the panel; **Escape** on the playground cancels a launch,
+  otherwise closes. Click the playground to focus its keyboard shortcuts.
 - **Reset system:** restores the initial bodies and camera, discarding additions.
 
-The panel supports touch buttons; editing numeric/color fields requires a
-keyboard. Mass is limited to 0.01–100000, each velocity component to ±10000,
+The egui panel reserves its own space beside the playground and scrolls in small
+windows. It supports touch buttons; browser text editing requires a hardware
+keyboard. Browser IME, virtual keyboards, and system clipboard are not integrated.
+UI definitions live in `src/ui.rs`; the playground consumes host-neutral frames.
+ Mass is limited to 0.01–100000, each velocity component to ±10000,
 and the scene to 256 bodies to bound the cost of pairwise gravity.
 
 Physics uses 240 fixed RK4 steps per second, with at most 100 ms of catch-up
@@ -80,8 +84,7 @@ NO_COLOR=true trunk serve --no-default-features --features web
 
 The browser needs WebGL2; click the canvas to focus keyboard controls. Refresh
 after Escape to restart. Desktop and web features are mutually exclusive.
-The font is embedded; its license is in `assets/DejaVuSans-LICENSE.txt` and is
-copied into web builds.
+Egui supplies the embedded UI fonts.
 
 ## Verification
 
@@ -95,4 +98,4 @@ The smoke mode opens a real window, advances even when unfocused, renders 12
 frames, then exits. CPU tests
 cover mass-dependent forces, momentum conservation, three minutes of planetary
 and moon orbits, body creation and validation, precision, trail trimming, time
-accumulation, field editing, launch velocities, and camera transforms.
+accumulation, body-setting validation, launch velocities, and camera transforms.

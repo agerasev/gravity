@@ -5,27 +5,19 @@ use crate::{
     viewport::Viewport,
 };
 use gravity::Simulation;
+use std::{cell::RefCell, rc::Rc};
 use wgame::{
-    Event, Library, Result, Window,
+    Library, Result, WindowHost,
     app::time::Instant,
+    canvas::{Button, Event, Key},
     gfx::types::color,
     glam::Vec2,
-    input::{
-        event::{MouseButton, MouseScrollDelta, TouchPhase},
-        keyboard::{KeyCode, PhysicalKey},
-    },
     prelude::*,
 };
 
-#[derive(Clone, Copy, PartialEq)]
-enum Pointer {
-    Mouse(MouseButton),
-    Touch(u64),
-}
-
 fn move_pointer(
     point: Vec2,
-    gesture: &mut Option<(Pointer, Gesture)>,
+    gesture: &mut Option<(Button, Gesture)>,
     controls: &mut Controls,
     view: &mut Viewport,
     size: Vec2,
@@ -38,9 +30,9 @@ fn move_pointer(
 }
 
 fn release_pointer(
-    pointer: Pointer,
+    pointer: Button,
     point: Vec2,
-    gesture: &mut Option<(Pointer, Gesture)>,
+    gesture: &mut Option<(Button, Gesture)>,
     controls: &mut Controls,
     simulation: &mut Simulation,
     size: Vec2,
@@ -58,8 +50,8 @@ fn release_pointer(
         },
     )) = gesture.take()
     {
-        if controls.covers(point, size) {
-            controls.message = "Launch cancelled over controls".into();
+        if point.x < 0.0 || point.y < 0.0 || point.x >= size.x || point.y >= size.y {
+            controls.message = "Launch cancelled outside playground".into();
             return;
         }
         match simulation.add_body(position, spec) {
@@ -74,17 +66,11 @@ fn release_pointer(
     }
 }
 
-pub async fn run(mut window: Window<'_>) -> Result<()> {
-    let library = Library::new(window.graphics());
-    let mut controls = Controls::new(&library)?;
+pub async fn run(mut host: impl WindowHost, shared: Rc<RefCell<Controls>>) -> Result<()> {
+    let library = Library::new(host.graphics());
     let mut simulation = Simulation::solar_system();
     let mut view = Viewport::default();
-    let mut input = window.input();
-    // Store physical cursor coordinates so display-scale changes do not stale it.
-    let mut cursor = None;
-    let mut scale_factor = window.scale_factor();
-    let mut gesture: Option<(Pointer, Gesture)> = None;
-    let mut focused = true;
+    let mut gesture: Option<(Button, Gesture)> = None;
     let mut clock = Clock::default();
     let mut last = Instant::now();
     #[cfg(not(target_arch = "wasm32"))]
@@ -92,215 +78,144 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
     #[cfg(target_arch = "wasm32")]
     let smoke = false;
     let mut frames = 0;
-
-    'frames: while let Some(mut frame) = window.next_frame().await? {
+    let mut previous_size = Vec2::ZERO;
+    'frames: while let Some(mut frame) = host.next_frame().await? {
+        let mut controls = shared.borrow_mut();
         let logical_size = frame.logical_size();
         let size = Vec2::new(logical_size.0 as f32, logical_size.1 as f32);
-        let scale_changed = frame.scale_factor() != scale_factor;
-        scale_factor = frame.scale_factor();
-        let mut world_size = controls.world_size(size);
         if frames == 0 {
-            view.home(world_size);
+            view.home(size);
         }
-        let mut reset_clock = frame.resized().is_some() || scale_changed;
+        let mut reset_clock = size != previous_size;
+        previous_size = size;
         if reset_clock {
             gesture = None;
         }
-        while let Some(event) = input.try_next() {
-            let mut action = None;
-            let mut press = None;
-            match event {
-                Event::KeyboardInput { event, .. } if event.state.is_pressed() => {
-                    if controls.key(&event) {
-                        continue;
-                    }
-                    if event.repeat {
-                        continue;
-                    }
-                    match event.physical_key {
-                        PhysicalKey::Code(KeyCode::Space) => action = Some(Action::Pause),
-                        PhysicalKey::Code(KeyCode::KeyP) => action = Some(Action::Panel),
-                        PhysicalKey::Code(KeyCode::KeyN) => action = Some(Action::Tool),
-                        PhysicalKey::Code(KeyCode::Home) => action = Some(Action::Home),
-                        PhysicalKey::Code(KeyCode::Equal | KeyCode::NumpadAdd) => {
-                            action = Some(Action::ZoomIn)
-                        }
-                        PhysicalKey::Code(KeyCode::Minus | KeyCode::NumpadSubtract) => {
-                            action = Some(Action::ZoomOut)
-                        }
-                        PhysicalKey::Code(KeyCode::Escape) => {
+        for event in &frame.input().events {
+            match *event {
+                Event::Key {
+                    key,
+                    pressed: true,
+                    repeat: false,
+                } => {
+                    let action = match key {
+                        Key::Space => Some(Action::Pause),
+                        Key::Character('p') => Some(Action::Panel),
+                        Key::Character('n') => Some(Action::Tool),
+                        Key::Home => Some(Action::Home),
+                        Key::Plus => Some(Action::ZoomIn),
+                        Key::Minus => Some(Action::ZoomOut),
+                        Key::Escape => {
                             if gesture.take().is_some() {
                                 controls.message.clear();
                             } else {
+                                drop(controls);
                                 frame.discard();
                                 break 'frames;
                             }
+                            None
                         }
-                        _ => {}
+                        _ => None,
+                    };
+                    if let Some(action) = action {
+                        controls.actions.push(action);
                     }
                 }
-                Event::CursorMoved { position, .. } => {
-                    let point = Vec2::new(position.x as f32, position.y as f32);
-                    cursor = Some(point);
-                    let point = point / scale_factor as f32;
-                    if matches!(gesture, Some((Pointer::Mouse(_), _))) {
-                        move_pointer(point, &mut gesture, &mut controls, &mut view, world_size);
-                    }
+                Event::Moved(point) => {
+                    move_pointer(point, &mut gesture, &mut controls, &mut view, size)
                 }
-                Event::CursorLeft { .. } => {
-                    cursor = None;
-                    gesture = None;
-                    controls.message.clear();
-                }
-                Event::MouseInput { button, state, .. } => {
-                    if let Some(point) = cursor.map(|p| p / scale_factor as f32) {
-                        if state.is_pressed() {
-                            press = Some((Pointer::Mouse(button), point));
-                        } else {
-                            release_pointer(
-                                Pointer::Mouse(button),
-                                point,
-                                &mut gesture,
-                                &mut controls,
-                                &mut simulation,
-                                size,
-                            );
-                        }
-                    }
-                }
-                Event::MouseWheel { delta, .. } if gesture.is_none() => {
-                    if let Some(point) = cursor.map(|p| p / scale_factor as f32)
-                        && !controls.covers(point, size)
-                    {
-                        let amount = match delta {
-                            MouseScrollDelta::LineDelta(_, y) => f64::from(y) * 0.16,
-                            MouseScrollDelta::PixelDelta(p) => p.y / scale_factor * 0.002,
-                        };
-                        view.zoom_at(amount.clamp(-2.0, 2.0).exp(), point, world_size);
-                    }
-                }
-                Event::Touch(touch) => {
-                    let point = Vec2::new(touch.location.x as f32, touch.location.y as f32)
-                        / scale_factor as f32;
-                    let pointer = Pointer::Touch(touch.id);
-                    match touch.phase {
-                        TouchPhase::Started => press = Some((pointer, point)),
-                        TouchPhase::Moved
-                            if gesture.as_ref().is_some_and(|(id, _)| *id == pointer) =>
-                        {
-                            move_pointer(point, &mut gesture, &mut controls, &mut view, world_size)
-                        }
-                        TouchPhase::Ended => {
-                            if gesture.as_ref().is_some_and(|(id, _)| *id == pointer) {
-                                move_pointer(
-                                    point,
-                                    &mut gesture,
-                                    &mut controls,
-                                    &mut view,
-                                    world_size,
-                                );
-                                release_pointer(
-                                    pointer,
-                                    point,
-                                    &mut gesture,
-                                    &mut controls,
-                                    &mut simulation,
-                                    size,
-                                );
+                Event::Button {
+                    button,
+                    pressed,
+                    position: point,
+                } => {
+                    if !pressed {
+                        move_pointer(point, &mut gesture, &mut controls, &mut view, size);
+                        release_pointer(
+                            button,
+                            point,
+                            &mut gesture,
+                            &mut controls,
+                            &mut simulation,
+                            size,
+                        );
+                    } else if gesture.is_none() {
+                        let pan = matches!(button, Button::Secondary | Button::Middle);
+                        let primary = button == Button::Primary;
+                        if pan || (primary && !controls.launch) {
+                            gesture = Some((button, Gesture::Pan { last: point }));
+                        } else if primary {
+                            match controls.spec() {
+                                Ok(spec) => {
+                                    controls.message = "Release to launch; Esc to cancel".into();
+                                    gesture = Some((
+                                        button,
+                                        Gesture::Launch {
+                                            pixel: point,
+                                            position: view.world(point, size),
+                                            spec,
+                                            aimed: false,
+                                        },
+                                    ));
+                                }
+                                Err(error) => controls.message = error.into(),
                             }
                         }
-                        TouchPhase::Cancelled
-                            if gesture.as_ref().is_some_and(|(id, _)| *id == pointer) =>
-                        {
-                            gesture = None
-                        }
-                        _ => {}
                     }
                 }
-                Event::Focused(value) => {
-                    focused = value;
-                    cursor = None;
+                Event::Scroll(delta) if gesture.is_none() => {
+                    if let Some(point) = frame.input().pointer {
+                        view.zoom_at(
+                            (f64::from(delta.y) * 0.004).clamp(-2.0, 2.0).exp(),
+                            point,
+                            size,
+                        );
+                    }
+                }
+                Event::Cancelled | Event::Focused(_) => {
                     gesture = None;
                     controls.message.clear();
-                    controls.blur();
                     reset_clock = true;
                 }
                 _ => {}
             }
-            if let Some((pointer, point)) = press
-                && gesture.is_none()
-            {
-                if controls.covers(point, size) {
-                    if matches!(
-                        pointer,
-                        Pointer::Mouse(MouseButton::Left) | Pointer::Touch(_)
-                    ) {
-                        action = controls.hit_test(point, size);
-                    }
-                } else {
-                    controls.blur();
-                    let pan = matches!(
-                        pointer,
-                        Pointer::Mouse(MouseButton::Right | MouseButton::Middle)
-                    );
-                    let primary = matches!(
-                        pointer,
-                        Pointer::Mouse(MouseButton::Left) | Pointer::Touch(_)
-                    );
-                    if pan || (primary && !controls.launch) {
-                        gesture = Some((pointer, Gesture::Pan { last: point }));
-                    } else if primary {
-                        match controls.spec() {
-                            Ok(spec) => {
-                                controls.message = "Release to launch; Esc to cancel".into();
-                                gesture = Some((
-                                    pointer,
-                                    Gesture::Launch {
-                                        pixel: point,
-                                        position: view.world(point, world_size),
-                                        spec,
-                                        aimed: false,
-                                    },
-                                ));
-                            }
-                            Err(error) => controls.message = error.into(),
-                        }
-                    }
+        }
+        for action in std::mem::take(&mut controls.actions) {
+            gesture = None;
+            controls.apply(action);
+            match action {
+                Action::Home => view.home(size),
+                Action::Reset => {
+                    simulation = Simulation::solar_system();
+                    view.home(size);
+                    reset_clock = true;
+                    controls.message.clear();
                 }
-            }
-            if let Some(action) = action {
-                gesture = None;
-                controls.apply(action);
-                world_size = controls.world_size(size);
-                match action {
-                    Action::Home => view.home(world_size),
-                    Action::Reset => {
-                        simulation = Simulation::solar_system();
-                        view.home(world_size);
-                        reset_clock = true;
-                        controls.message.clear();
-                    }
-                    Action::ZoomIn => view.zoom_at(1.25, world_size * 0.5, world_size),
-                    Action::ZoomOut => view.zoom_at(0.8, world_size * 0.5, world_size),
-                    Action::Pause => reset_clock = true,
-                    _ => {}
-                }
+                Action::ZoomIn => view.zoom_at(1.25, size * 0.5, size),
+                Action::ZoomOut => view.zoom_at(0.8, size * 0.5, size),
+                Action::Pause => reset_clock = true,
+                _ => {}
             }
         }
         let now = Instant::now();
         let elapsed = now - last;
         last = now;
         let aiming = gesture.as_ref().is_some_and(|(_, g)| g.is_launch());
-        let running = !controls.paused && (focused || smoke) && !aiming;
+        let running = !controls.paused
+            && (frame.input().window_focused || smoke)
+            && !aiming
+            && frame.visible();
         if reset_clock {
             clock.reset();
         }
         for _ in 0..clock.advance(elapsed, running && !reset_clock) {
             simulation.step();
         }
-
+        controls.bodies = simulation.body_count();
+        controls.zoom = view.zoom;
+        drop(controls);
         frame.clear(color::BLACK);
-        let camera = frame.logical_camera().transform(view.transform(world_size));
+        let camera = frame.logical_camera().transform(view.transform(size));
         let mut scene = frame.scene();
         scene.camera = camera;
         simulation.draw(&library, &mut scene);
@@ -308,18 +223,6 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
             gesture.draw(&library, &mut scene, view.zoom);
         }
         scene.render();
-        let camera = frame.logical_camera();
-        let mut overlay = frame.scene();
-        overlay.camera = camera;
-        controls.draw(
-            &library,
-            &mut overlay,
-            size,
-            simulation.body_count(),
-            view.zoom,
-            scale_factor,
-        );
-        overlay.render();
         frame.present();
         frames += 1;
         if smoke && frames == 12 {
