@@ -16,7 +16,7 @@ git submodule update --init --recursive
 cargo run --locked --release
 ```
 
-The default scene is a fictional solar system: a sun, seven planets, and two
+The default scene is a fictional solar system: a sun, eight planets (including Neptune), and two
 moons orbiting the gas giants. Distances, visual sizes, masses, and orbital periods
 are chosen for a compact, readable simulation rather than astronomical accuracy.
 All bodies attract one another, including the sun; none is pinned in place.
@@ -43,6 +43,9 @@ Zoom in on the outer gas giants to see their moons.
 - **Pause:** Space or the panel button. Losing focus pauses automatically.
   **P** toggles the panel; **Escape** on the playground cancels a launch,
   otherwise closes. Click the playground to focus its keyboard shortcuts.
+- **Collisions:** enabled by default. Toggle **Merge collisions** or press **C**
+  on the playground to let bodies pass through each other. The setting survives
+  a system reset. Overlaps merge on the next physics step when enabled.
 - **Reset system:** restores the initial bodies and camera, discarding additions.
 
 The egui panel reserves its own space beside the playground and scrolls in small
@@ -58,12 +61,21 @@ time steps and solver coefficients. Gravity now depends on the attracting body's
 mass, using `a = G * other_mass * delta / (distance² + softening²)^(3/2)`, with
 `G = 120` and softening length 8. This preserves equal and opposite pair forces
 and stays finite at zero separation. Visual radii grow with the cube root of
-mass; bodies can pass through one another and do not merge or collide.
+mass and define collision contact. With collisions enabled, touching bodies
+(including moons and the sun) merge. The new body has their summed mass,
+mass-weighted position and velocity, and mass-weighted RGBA color. These are
+inelastic collisions: linear momentum is conserved, kinetic energy need not be.
+
+Contact is detected along linear sweeps between RK4 endpoints, so fast bodies
+cannot skip a collision just by crossing within one step. The system advances
+from the first contact with the merged bodies; this remains an approximation to
+curved trajectories within each 1/240-second step.
 
 Trails sample every 0.2 seconds and retain 6.4 seconds of history. They taper
 with age at constant 50% opacity, using straight polyline segments with miter
 limit 4 and bevel fallback. The oldest segment is clipped continuously between
-samples. Caps are flat, and self-overlapping trails blend more than once.
+samples. After a merge, both original trails remain in their original colors
+and age away normally; the merged body starts a separate trail. Caps are flat, and self-overlapping trails blend more than once.
 
 ## Web
 

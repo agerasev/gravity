@@ -19,7 +19,7 @@ impl Default for Viewport {
 impl Viewport {
     pub fn home(&mut self, size: Vec2) {
         self.center = DVec2::ZERO;
-        self.zoom = (f64::from(size.min_element()) / 1350.0).clamp(0.02, 30.0);
+        self.zoom = (f64::from(size.min_element()) / gravity::SYSTEM_VIEW_SIZE).clamp(0.02, 30.0);
     }
 
     pub fn world(&self, pixel: Vec2, size: Vec2) -> DVec2 {

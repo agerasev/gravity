@@ -8,6 +8,10 @@ use crate::body::{Body, Motion};
 pub const STEPS_PER_SECOND: u32 = 240;
 const GRAVITY: f64 = 120.0;
 const SOFTENING: f64 = 8.0;
+/// Diameter of the initial system's viewing area, including Neptune's orbit.
+pub const SYSTEM_VIEW_SIZE: f64 = 1800.0;
+
+mod collision;
 
 /// A body's initial conditions, in deliberately fictional world units.
 #[derive(Clone, Copy, Debug)]
@@ -35,7 +39,7 @@ impl BodySpec {
     }
 }
 
-/// Exaggerated visual radius; bodies are point masses and do not collide.
+/// Exaggerated radius used for drawing and collision contact.
 pub fn body_radius(mass: f64) -> f64 {
     2.5 + 1.7 * mass.cbrt()
 }
@@ -43,7 +47,9 @@ pub fn body_radius(mass: f64) -> f64 {
 pub struct Simulation {
     pub(crate) bodies: Vec<Body>,
     pub(crate) steps: u64,
+    pub(crate) retired_trails: Vec<crate::trail::RetiredTrail>,
     gravity: f64,
+    collisions: bool,
 }
 
 impl Simulation {
@@ -58,7 +64,9 @@ impl Simulation {
                 Rgba::new(1.0, 0.78, 0.25, 1.0),
             )],
             steps: 0,
+            retired_trails: Vec::new(),
             gravity: GRAVITY,
+            collisions: true,
         };
         for (radius, mass, angle, rgb) in [
             (75.0_f64, 0.3, 0.4_f64, [0.7, 0.65, 0.6]),
@@ -67,7 +75,8 @@ impl Simulation {
             (215.0, 0.5, 0.8, [1.0, 0.36, 0.24]),
             (340.0, 20.0, 3.3, [0.85, 0.64, 0.45]),
             (460.0, 10.0, 5.4, [0.95, 0.84, 0.56]),
-            (600.0, 2.0, 1.9, [0.38, 0.86, 0.9]),
+            (620.0, 2.0, 1.9, [0.38, 0.86, 0.9]),
+            (800.0, 2.5, 4.6, [0.23, 0.38, 1.0]), // Neptune
         ] {
             let radial = DVec2::new(angle.cos(), angle.sin());
             let speed = (GRAVITY * star_mass * radius.powi(2)
@@ -82,7 +91,7 @@ impl Simulation {
         }
         // Keep moon orbits well inside their host's sphere of influence.
         for (host, radius, angle, rgb) in [
-            (5, 15.0_f64, 1.2_f64, [0.9, 0.87, 0.78]),
+            (5, 13.5_f64, 1.2_f64, [0.9, 0.87, 0.78]),
             (6, 17.0, 3.8, [0.65, 0.76, 0.9]),
         ] {
             let planet = &sim.bodies[host];
@@ -114,6 +123,15 @@ impl Simulation {
 
     pub fn body_count(&self) -> usize {
         self.bodies.len()
+    }
+
+    pub fn collisions_enabled(&self) -> bool {
+        self.collisions
+    }
+
+    /// Changes collision handling for subsequent steps, without advancing time.
+    pub fn set_collisions_enabled(&mut self, enabled: bool) {
+        self.collisions = enabled;
     }
 
     pub fn add_body(&mut self, position: DVec2, spec: BodySpec) -> Result<(), &'static str> {
@@ -152,7 +170,9 @@ impl Simulation {
                 })
                 .collect(),
             steps: 0,
+            retired_trails: Vec::new(),
             gravity: GRAVITY,
+            collisions: true,
         }
     }
 
@@ -162,8 +182,15 @@ impl Simulation {
 
     /// Advance one fixed step and record trail samples at their own cadence.
     pub fn step(&mut self) {
-        Rk4.solve_step(self, 1.0 / STEPS_PER_SECOND as f32);
+        let dt = 1.0 / STEPS_PER_SECOND as f32;
+        if self.collisions {
+            self.step_with_collisions(dt);
+        } else {
+            Rk4.solve_step(self, dt);
+        }
         self.steps += 1;
+        self.retired_trails
+            .retain(|trail| trail.is_alive(self.steps));
         for body in &mut self.bodies {
             body.trail.record(body.motion.position, self.steps);
         }

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use wgame::{glam::DVec2, shapes::PolylinePoint};
+use wgame::{glam::DVec2, rgb::Rgba, shapes::PolylinePoint};
 
 use crate::STEPS_PER_SECOND;
 
@@ -16,6 +16,25 @@ struct Sample {
 
 pub(crate) struct Trail {
     samples: VecDeque<Sample>,
+}
+
+pub(crate) struct RetiredTrail {
+    pub trail: Trail,
+    pub position: DVec2,
+    pub radius: f64,
+    pub color: Rgba<f32>,
+    pub step: u64,
+}
+
+impl RetiredTrail {
+    pub fn is_alive(&self, step: u64) -> bool {
+        step.saturating_sub(self.step) < LIFETIME_STEPS
+    }
+
+    pub fn write_points(&self, step: u64, points: &mut Vec<PolylinePoint>) {
+        self.trail
+            .write_aged_points(self.position, self.step, step, self.radius, points);
+    }
 }
 
 impl Trail {
@@ -47,18 +66,36 @@ impl Trail {
         radius: f64,
         points: &mut Vec<PolylinePoint>,
     ) {
+        self.write_aged_points(position, step, step, radius, points);
+    }
+
+    fn write_aged_points(
+        &self,
+        position: DVec2,
+        head_step: u64,
+        step: u64,
+        radius: f64,
+        points: &mut Vec<PolylinePoint>,
+    ) {
         points.clear();
+        let head_age = step.saturating_sub(head_step) as f64 / LIFETIME_STEPS as f64;
+        if head_age >= 1.0 {
+            return;
+        }
         points.push(PolylinePoint {
             position: position.as_vec2(),
-            width: (2.0 * radius) as f32,
+            width: (2.0 * radius * (1.0 - head_age)) as f32,
         });
         let cutoff = step.saturating_sub(LIFETIME_STEPS);
-        let mut newer = Sample { position, step };
+        let mut newer = Sample {
+            position,
+            step: head_step,
+        };
         for sample in self
             .samples
             .iter()
             .rev()
-            .filter(|sample| sample.step < step)
+            .filter(|sample| sample.step < head_step)
         {
             if sample.step < cutoff {
                 let fraction = (newer.step - cutoff) as f64 / (newer.step - sample.step) as f64;

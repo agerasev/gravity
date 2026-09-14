@@ -10,6 +10,7 @@ pub enum Action {
     ZoomIn,
     ZoomOut,
     Tool,
+    Collisions,
 }
 
 /// Application settings and actions; no GUI types enter the simulation loop.
@@ -17,6 +18,7 @@ pub struct Controls {
     pub panel: bool,
     pub paused: bool,
     pub launch: bool,
+    pub collisions: bool,
     pub message: String,
     pub values: [String; 4],
     pub actions: Vec<Action>,
@@ -29,6 +31,7 @@ impl Default for Controls {
             panel: true,
             paused: false,
             launch: true,
+            collisions: true,
             message: String::new(),
             values: ["1", "#70CFFF", "0", "-50"].map(String::from),
             actions: Vec::new(),
@@ -42,6 +45,7 @@ impl Controls {
         match action {
             Action::Panel => self.panel = !self.panel,
             Action::Pause => self.paused = !self.paused,
+            Action::Collisions => self.collisions = !self.collisions,
             Action::Tool => {
                 self.launch = !self.launch;
                 self.message.clear();

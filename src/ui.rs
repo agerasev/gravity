@@ -35,6 +35,10 @@ pub fn layout(ui: &mut egui::Ui, canvas: &Canvas, controls: &mut Controls) -> eg
                 ] {
                     if ui.button(label).clicked() { controls.actions.push(action); }
                 }
+                let mut collisions = controls.collisions;
+                if ui.checkbox(&mut collisions, "Merge collisions [C]").changed() {
+                    controls.actions.push(Action::Collisions);
+                }
                 ui.separator();
                 for (value, label) in controls.values.iter_mut().zip([
                     "Mass (0.01–100000)", "Color (#RRGGBB)", "X velocity / sec (right +)", "Y velocity / sec (down +)",

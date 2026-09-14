@@ -6,4 +6,4 @@ mod render;
 mod simulation;
 mod trail;
 
-pub use simulation::{BodySpec, STEPS_PER_SECOND, Simulation, body_radius};
+pub use simulation::{BodySpec, STEPS_PER_SECOND, SYSTEM_VIEW_SIZE, Simulation, body_radius};

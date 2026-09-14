@@ -6,7 +6,9 @@ fn pair(positions: [DVec2; 2]) -> Simulation {
             .map(|p| Body::new(p, DVec2::ZERO, 10.0, Rgba::new(1.0, 1.0, 1.0, 1.0)))
             .into(),
         steps: 0,
+        retired_trails: Vec::new(),
         gravity: 1e5,
+        collisions: false,
     }
 }
 
@@ -50,7 +52,9 @@ fn phy_parameter_retains_motion_below_f32_position_precision() {
             Rgba::new(1.0, 1.0, 1.0, 1.0),
         )],
         steps: 0,
+        retired_trails: Vec::new(),
         gravity: 1e5,
+        collisions: false,
     };
     for _ in 0..240 {
         sim.step();
@@ -62,6 +66,7 @@ fn phy_parameter_retains_motion_below_f32_position_precision() {
 #[test]
 fn seeded_simulation_is_reproducible_and_stays_finite_with_full_trails() {
     let mut sim = Simulation::new(42);
+    sim.set_collisions_enabled(false);
     let same = Simulation::new(42);
     assert_eq!(sim.bodies.len(), 64);
     for (a, b) in sim.bodies.iter().zip(&same.bodies) {
@@ -107,13 +112,21 @@ fn unequal_masses_conserve_momentum() {
 #[test]
 fn solar_orbits_and_moons_remain_bound_for_three_minutes() {
     let mut sim = Simulation::solar_system();
-    assert_eq!(sim.body_count(), 10);
-    let radii: Vec<f64> = sim.bodies[1..8]
+    assert_eq!(sim.body_count(), 11);
+    assert!(sim.collisions_enabled());
+    let radii: Vec<f64> = sim.bodies[1..9]
         .iter()
         .map(|b| b.motion.position.length())
         .collect();
     for _ in 0..STEPS_PER_SECOND * 180 {
         sim.step();
+        assert_eq!(
+            sim.body_count(),
+            11,
+            "default system collided at {}: masses {:?}",
+            sim.time(),
+            sim.bodies.iter().map(|b| b.mass).collect::<Vec<_>>()
+        );
         for (i, radius) in radii.iter().enumerate() {
             let distance = sim.bodies[i + 1]
                 .motion
@@ -124,7 +137,7 @@ fn solar_orbits_and_moons_remain_bound_for_three_minutes() {
                 "planet {i}: {distance} vs {radius}"
             );
         }
-        for (moon, host) in [(8, 5), (9, 6)] {
+        for (moon, host) in [(9, 5), (10, 6)] {
             let distance = sim.bodies[moon]
                 .motion
                 .position

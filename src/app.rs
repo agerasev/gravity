@@ -102,6 +102,7 @@ pub async fn run(mut host: impl WindowHost, shared: Rc<RefCell<Controls>>) -> Re
                         Key::Space => Some(Action::Pause),
                         Key::Character('p') => Some(Action::Panel),
                         Key::Character('n') => Some(Action::Tool),
+                        Key::Character('c') => Some(Action::Collisions),
                         Key::Home => Some(Action::Home),
                         Key::Plus => Some(Action::ZoomIn),
                         Key::Minus => Some(Action::ZoomOut),
@@ -187,6 +188,7 @@ pub async fn run(mut host: impl WindowHost, shared: Rc<RefCell<Controls>>) -> Re
                 Action::Home => view.home(size),
                 Action::Reset => {
                     simulation = Simulation::solar_system();
+                    simulation.set_collisions_enabled(controls.collisions);
                     view.home(size);
                     reset_clock = true;
                     controls.message.clear();
@@ -194,6 +196,7 @@ pub async fn run(mut host: impl WindowHost, shared: Rc<RefCell<Controls>>) -> Re
                 Action::ZoomIn => view.zoom_at(1.25, size * 0.5, size),
                 Action::ZoomOut => view.zoom_at(0.8, size * 0.5, size),
                 Action::Pause => reset_clock = true,
+                Action::Collisions => simulation.set_collisions_enabled(controls.collisions),
                 _ => {}
             }
         }
