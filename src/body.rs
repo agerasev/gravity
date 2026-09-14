@@ -1,199 +1,59 @@
-use std::f64::consts::{PI};
-use std::collections::VecDeque;
+use std::ops::{AddAssign, MulAssign};
 
-//use console;
+use phy::{Deriv, Param, Rk4, Var};
+use wgame::{glam::DVec2, rgb::Rgba};
 
-use physsol::vec::*;
-use physsol::point::*;
-use physsol::rk4::*;
+use crate::trail::Trail;
 
-use wasm::canvas::*;
-
-pub struct Curve {
-    pts: [Vec2<f64>; 4],
-    ort: [Vec2<f64>; 4],
-    rad: [f64; 4],
-    dt: f64,
+/// Keep state and derivative accumulation in f64. phy supplies f32 time steps
+/// and RK4 coefficients, which are converted at the parameter boundary.
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+pub(crate) struct Motion {
+    pub position: DVec2,
+    pub velocity: DVec2,
 }
 
-impl Curve {
-    fn new() -> Self {
-        Curve {
-            pts: [Vec2::<f64>::zero(); 4],
-            ort: [Vec2::<f64>::zero(); 4],
-            rad: [0.0; 4],
-            dt: 0.0,
-        }
-    }
+impl Param for Motion {
+    type Deriv = Self;
 
-    fn from_points(p0: &Point2<f64>, p1: &Point2<f64>, dt: f64) -> Self {
-        Curve {
-            pts: [
-                p0.pos,
-                p0.pos - p0.vel*dt/3.0,
-                p1.pos + p1.vel*dt/3.0,
-                p1.pos,
-            ],
-            ort: [Vec2::<f64>::zero(); 4],
-            rad: [0.0; 4],
-            dt
-        }
-    }
-
-    fn compute_ort(&mut self) {
-        let left = |v: Vec2<f64>| Vec2::from(-v[1], v[0]);
-        for j in 0..4 {
-            self.ort[j] = left(self.vel_at((j as f64)/3.0)).normalize()
-        }
-    }
-
-    fn left(&self, j: usize) -> Vec2<f64> {
-        self.pts[j] + self.rad[j]*self.ort[j]
-    }
-    fn right(&self, j: usize) -> Vec2<f64> {
-        self.pts[j] - self.rad[j]*self.ort[j]
-    }
-
-    fn pos_at(&self, w: f64) -> Vec2<f64> {
-        let rw = 1.0 - w;
-        (self.pts[0]*rw + self.pts[1]*3.0*w)*rw*rw + (self.pts[2]*3.0*rw + self.pts[3]*w)*w*w
-    }
-    fn vel_at(&self, w: f64) -> Vec2<f64> {
-        let rw = 1.0 - w;
-        ((self.pts[0]*rw + self.pts[1]*(2.0*w - rw))*rw - (self.pts[2]*(2.0*rw - w) + self.pts[3]*w)*w)*3.0/self.dt
+    fn step(&mut self, deriv: &Self, dt: f32) {
+        self.position += deriv.position * f64::from(dt);
+        self.velocity += deriv.velocity * f64::from(dt);
     }
 }
 
-pub struct Track {
-    pub point: Point2<f64>,
-    pub curve: Curve,
+impl Deriv for Motion {}
+
+impl MulAssign<f32> for Motion {
+    fn mul_assign(&mut self, factor: f32) {
+        self.position *= f64::from(factor);
+        self.velocity *= f64::from(factor);
+    }
 }
 
-pub struct BodyCfg {
-    pub track_len: usize,
-    pub step_dur: f64,
+impl AddAssign<&Self> for Motion {
+    fn add_assign(&mut self, other: &Self) {
+        self.position += other.position;
+        self.velocity += other.velocity;
+    }
 }
 
-pub struct Body {
-    pub var: Wrap<Point2<f64>>,
+pub(crate) struct Body {
+    pub motion: Var<Motion, Rk4>,
     pub mass: f64,
-    pub color: Color,
-    pub rad: f64,
-
-    tracks: VecDeque<Track>,
-    last_step: f64,
+    pub radius: f64,
+    pub color: Rgba<f32>,
+    pub trail: Trail,
 }
 
 impl Body {
-    pub fn new(point: &Point2<f64>, mass: f64, color: Color, cfg: &BodyCfg) -> Self {
+    pub fn new(position: DVec2, velocity: DVec2, mass: f64, color: Rgba<f32>) -> Self {
         Self {
-            var: wrap(point.clone()), mass, color, rad: mass,
-            tracks: VecDeque::with_capacity(cfg.track_len),
-            last_step: -2.0*cfg.step_dur,
-        }
-    }
-
-    pub fn step(&mut self, cfg: &BodyCfg, time: f64) {
-        let mut dt = time - self.last_step;
-        if dt > cfg.step_dur {
-            if self.tracks.len() > 0 {
-                let mut curve = Curve::from_points(&self.var.0, &self.tracks.back().unwrap().point, cfg.step_dur);
-                curve.compute_ort();
-                self.tracks.back_mut().unwrap().curve = curve;
-            }
-            self.tracks.push_back(Track { point: self.var.0.clone(), curve: Curve::new() } );
-            self.last_step = time;
-            dt = 0.0;
-            if self.tracks.len() > cfg.track_len {
-                self.tracks.pop_front();
-            }
-        }
-
-        if self.tracks.len() > 0 {
-            let mut curve = Curve::from_points(&self.var.0, &self.tracks.back().unwrap().point, dt);
-            curve.compute_ort();
-            self.tracks.back_mut().unwrap().curve = curve;
-        }
-        if self.tracks.len() >= cfg.track_len {
-            let w = 1.0 - dt/cfg.step_dur;
-            let full_curve = Curve::from_points(&self.tracks[1].point, &self.tracks[0].point, cfg.step_dur);
-            let np = Point2 { pos: full_curve.pos_at(w), vel: full_curve.vel_at(w) };
-            let mut curve = Curve::from_points(&self.tracks[1].point, &np, w*cfg.step_dur);
-            curve.compute_ort();
-            self.tracks[0].curve = curve;
-        }
-
-        let mut ct = 0.0;
-        for track in self.tracks.iter_mut().rev() {
-            for j in 0..4 {
-                track.curve.rad[j] = self.rad*(1.0 - (ct + track.curve.dt*(j as f64)/3.0)/((cfg.track_len as f64)*cfg.step_dur));
-            }
-            ct += track.curve.dt;
-        }
-    }
-
-    pub fn draw<F: FnMut(&Path, &Method)>(&mut self, mut func: F, _cfg: &BodyCfg, _time: f64) {
-        func(
-            &Path::Circle {
-                pos: self.var.0.pos,
-                rad: self.rad,
-            },
-            &Method::Fill { color: self.color },
-        );
-    }
-
-    pub fn draw_track<F: FnMut(&Path, &Method)>(&mut self, mut func: F, _cfg: &BodyCfg, _time: f64) {
-        if self.tracks.len() > 0 {
-            let mut track_color = self.color;
-            track_color[3] *= 0.5;
-
-            let mut paths = Vec::<Path>::with_capacity(2*(self.tracks.len() + 2));
-            let mut started = false;
-
-            for track in self.tracks.iter().rev() {
-                if track.curve.dt > 1e-8 {
-                    if !started {
-                        paths.push(Path::MoveTo { pos: track.curve.left(0) });
-                        started = true;
-                    }
-                    paths.push(Path::BezierTo {
-                        cp1: track.curve.left(1),
-                        cp2: track.curve.left(2),
-                        pos: track.curve.left(3),
-                    });
-                }
-            }
-
-            let end_rad = self.tracks[0].curve.rad[3];
-            if end_rad > 1e-8 {
-                let end_dir = self.tracks[0].curve.pts[2] - self.tracks[0].curve.pts[3];
-                let ang = end_dir[0].atan2(-end_dir[1]);
-                paths.push(Path::Arc {
-                    pos: self.tracks[0].curve.pts[3],
-                    rad: end_rad,
-                    angle: Vec2::from(ang, ang + PI),
-                });
-            }
-
-            started = false;
-            for track in self.tracks.iter() {
-                if track.curve.dt > 1e-8 {
-                    if !started {
-                        paths.push(Path::LineTo { pos: track.curve.right(3) });
-                    }
-                    paths.push(Path::BezierTo {
-                        cp1: track.curve.right(2),
-                        cp2: track.curve.right(1),
-                        pos: track.curve.right(0),
-                    });
-                }
-            }
-            paths.push(Path::Close);
-
-            func(
-                &Path::List { paths },
-                &Method::Fill { color: track_color },
-            );
+            motion: Var::new(Motion { position, velocity }),
+            mass,
+            radius: mass,
+            color,
+            trail: Trail::new(position),
         }
     }
 }

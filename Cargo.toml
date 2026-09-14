@@ -1,14 +1,26 @@
 [package]
 name = "wasm-gravity"
 version = "0.1.4"
+edition = "2024"
 authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
 
 [lib]
-name = "main"
-crate-type = ["cdylib"]
+name = "gravity"
+
+[[bin]]
+name = "gravity"
+path = "src/main.rs"
+
+[features]
+default = ["desktop"]
+desktop = ["wgame/desktop"]
+web = ["wgame/web"]
 
 [dependencies]
-lazy_static = "1.1.0"
-wasm_env = { path = "wasm" }
-rand = "0.5"
-physsol = "0.2"
+getrandom = { version = "0.4.3", features = ["std", "wasm_js"] }
+phy = { path = "../phy" }
+rand = { version = "0.10.2", default-features = false, features = ["std"] }
+wgame = { path = "../wgame/wgame", default-features = false, features = [
+    "shapes",
+    "typography",
+] }

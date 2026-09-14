@@ -1,14 +1,9 @@
-#[macro_use]
-extern crate lazy_static;
-extern crate rand;
-#[macro_use]
-extern crate wasm_env as wasm;
-extern crate physsol;
+//! A softened gravitational particle simulation with time-limited trails.
+#![forbid(unsafe_code)]
 
-mod app;
 mod body;
-mod helper;
+mod render;
+mod simulation;
+mod trail;
 
-use app::App;
-
-wasm_bind!(wasm, || Box::new(App::new()));
+pub use simulation::{STEPS_PER_SECOND, Simulation};

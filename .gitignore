@@ -1,4 +1,3 @@
 /target
+/dist
 **/*.rs.bk
-*.wasm
-*.html
