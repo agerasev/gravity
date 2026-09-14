@@ -1,3 +1,5 @@
+//! Camera layout and pointer positions use logical pixels; world coordinates
+//! and zoom are independent of the display scale factor.
 use wgame::glam::{Affine2, DVec2, Vec2};
 
 pub struct Viewport {

@@ -28,7 +28,8 @@ Zoom in on the outer gas giants to see their moons.
   with the tool button or **N** to pan using the left button or one-finger touch.
 - **Zoom:** scroll at the cursor, use the panel's zoom buttons, or press + / -.
   **Home** restores a view of the initial system's area. Resizing preserves the
-  camera's world center and zoom.
+  camera's world center and zoom. UI dimensions follow desktop scaling, and
+  text is rasterized at the display resolution.
 - **Create:** **Launch body** is selected at startup. Click a
   field and type to replace its value; Enter accepts, Tab advances, and Escape
   restores that field's previous value. Set mass, color as `#RRGGBB`, and X/Y

@@ -9,7 +9,7 @@ use wgame::{
     },
     prelude::*,
     rgb::Rgba,
-    typography::{FontData, FontTexture, Text},
+    typography::{Font, FontData, FontTexture, Text},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -169,8 +169,8 @@ pub struct Controls {
     pub launch: bool,
     pub message: String,
     editor: Editor,
-    font: FontTexture,
-    labels: Vec<(String, Text)>,
+    font: Font,
+    labels: Vec<(String, FontTexture, Text)>,
 }
 impl Controls {
     pub fn new(library: &Library) -> Result<Self> {
@@ -184,7 +184,7 @@ impl Controls {
             launch: true,
             message: String::new(),
             editor: Editor::default(),
-            font: font.rasterize(20.0),
+            font,
             labels: Vec::new(),
         })
     }
@@ -258,6 +258,7 @@ impl Controls {
         size: Vec2,
         count: usize,
         zoom: f64,
+        scale_factor: f64,
     ) {
         let l = Layout::new(size);
         if self.panel {
@@ -385,12 +386,17 @@ impl Controls {
         rows.push((status, Vec2::new(16.0, 28.0), 16.0));
         // One cache slot per visible label, including changing numeric values.
         for (i, (label, pos, scale)) in rows.into_iter().enumerate() {
+            let pixels = scale * scale_factor as f32;
             if i == self.labels.len() {
-                self.labels.push((label.clone(), self.font.text(&label)));
-            } else if self.labels[i].0 != label {
-                self.labels[i] = (label.clone(), self.font.text(&label));
+                let raster = self.font.rasterize(pixels);
+                let text = raster.text(&label);
+                self.labels.push((label, raster, text));
+            } else if self.labels[i].0 != label || self.labels[i].1.size() != pixels {
+                let raster = self.font.rasterize(pixels);
+                let text = raster.text(&label);
+                self.labels[i] = (label, raster, text);
             }
-            scene.add(&self.labels[i].1.scale(scale).move_to(pos));
+            scene.add(&self.labels[i].2.scale(scale).move_to(pos));
         }
     }
 }

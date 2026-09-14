@@ -80,7 +80,9 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
     let mut simulation = Simulation::solar_system();
     let mut view = Viewport::default();
     let mut input = window.input();
+    // Store physical cursor coordinates so display-scale changes do not stale it.
     let mut cursor = None;
+    let mut scale_factor = window.scale_factor();
     let mut gesture: Option<(Pointer, Gesture)> = None;
     let mut focused = true;
     let mut clock = Clock::default();
@@ -92,12 +94,15 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
     let mut frames = 0;
 
     'frames: while let Some(mut frame) = window.next_frame().await? {
-        let size = Vec2::new(frame.size().0 as f32, frame.size().1 as f32);
+        let logical_size = frame.logical_size();
+        let size = Vec2::new(logical_size.0 as f32, logical_size.1 as f32);
+        let scale_changed = frame.scale_factor() != scale_factor;
+        scale_factor = frame.scale_factor();
         let mut world_size = controls.world_size(size);
         if frames == 0 {
             view.home(world_size);
         }
-        let mut reset_clock = frame.resized().is_some();
+        let mut reset_clock = frame.resized().is_some() || scale_changed;
         if reset_clock {
             gesture = None;
         }
@@ -137,6 +142,7 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
                 Event::CursorMoved { position, .. } => {
                     let point = Vec2::new(position.x as f32, position.y as f32);
                     cursor = Some(point);
+                    let point = point / scale_factor as f32;
                     if matches!(gesture, Some((Pointer::Mouse(_), _))) {
                         move_pointer(point, &mut gesture, &mut controls, &mut view, world_size);
                     }
@@ -147,7 +153,7 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
                     controls.message.clear();
                 }
                 Event::MouseInput { button, state, .. } => {
-                    if let Some(point) = cursor {
+                    if let Some(point) = cursor.map(|p| p / scale_factor as f32) {
                         if state.is_pressed() {
                             press = Some((Pointer::Mouse(button), point));
                         } else {
@@ -163,18 +169,19 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
                     }
                 }
                 Event::MouseWheel { delta, .. } if gesture.is_none() => {
-                    if let Some(point) = cursor
+                    if let Some(point) = cursor.map(|p| p / scale_factor as f32)
                         && !controls.covers(point, size)
                     {
                         let amount = match delta {
                             MouseScrollDelta::LineDelta(_, y) => f64::from(y) * 0.16,
-                            MouseScrollDelta::PixelDelta(p) => p.y * 0.002,
+                            MouseScrollDelta::PixelDelta(p) => p.y / scale_factor * 0.002,
                         };
                         view.zoom_at(amount.clamp(-2.0, 2.0).exp(), point, world_size);
                     }
                 }
                 Event::Touch(touch) => {
-                    let point = Vec2::new(touch.location.x as f32, touch.location.y as f32);
+                    let point = Vec2::new(touch.location.x as f32, touch.location.y as f32)
+                        / scale_factor as f32;
                     let pointer = Pointer::Touch(touch.id);
                     match touch.phase {
                         TouchPhase::Started => press = Some((pointer, point)),
@@ -293,9 +300,7 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
         }
 
         frame.clear(color::BLACK);
-        let camera = frame
-            .physical_camera()
-            .transform(view.transform(world_size));
+        let camera = frame.logical_camera().transform(view.transform(world_size));
         let mut scene = frame.scene();
         scene.camera = camera;
         simulation.draw(&library, &mut scene);
@@ -303,7 +308,7 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
             gesture.draw(&library, &mut scene, view.zoom);
         }
         scene.render();
-        let camera = frame.physical_camera();
+        let camera = frame.logical_camera();
         let mut overlay = frame.scene();
         overlay.camera = camera;
         controls.draw(
@@ -312,6 +317,7 @@ pub async fn run(mut window: Window<'_>) -> Result<()> {
             size,
             simulation.body_count(),
             view.zoom,
+            scale_factor,
         );
         overlay.render();
         frame.present();
