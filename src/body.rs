@@ -51,7 +51,7 @@ impl Body {
         Self {
             motion: Var::new(Motion { position, velocity }),
             mass,
-            radius: mass,
+            radius: crate::body_radius(mass),
             color,
             trail: Trail::new(position),
         }

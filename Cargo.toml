@@ -17,10 +17,9 @@ desktop = ["wgame/desktop"]
 web = ["wgame/web"]
 
 [dependencies]
-getrandom = { version = "0.4.3", features = ["std", "wasm_js"] }
-phy = { path = "../phy" }
+phy = { path = "phy" }
 rand = { version = "0.10.2", default-features = false, features = ["std"] }
-wgame = { path = "../wgame/wgame", default-features = false, features = [
+wgame = { path = "wgame/wgame", default-features = false, features = [
     "shapes",
     "typography",
 ] }

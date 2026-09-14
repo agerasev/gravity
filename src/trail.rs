@@ -20,8 +20,12 @@ pub(crate) struct Trail {
 
 impl Trail {
     pub fn new(position: DVec2) -> Self {
+        Self::at_step(position, 0)
+    }
+
+    pub fn at_step(position: DVec2, step: u64) -> Self {
         let mut samples = VecDeque::with_capacity(SEGMENTS + 1);
-        samples.push_back(Sample { position, step: 0 });
+        samples.push_back(Sample { position, step });
         Self { samples }
     }
 

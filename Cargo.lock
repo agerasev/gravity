@@ -876,10 +876,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi 6.0.0",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -895,20 +893,12 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34627c5158214743a374170fed714833fdf4e4b0cbcc1ea98417866a4c5d4441"
-dependencies = [
- "libm",
-]
-
-[[package]]
-name = "glam"
 version = "0.33.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e762b9b188634fc508d4ec54b62ea3d352c43fd431d18d05d46f559f217f4725"
 dependencies = [
  "bytemuck",
+ "libm",
 ]
 
 [[package]]
@@ -1750,7 +1740,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 name = "phy"
 version = "0.2.0"
 dependencies = [
- "glam 0.32.0",
+ "glam",
  "libm",
 ]
 
@@ -2557,7 +2547,6 @@ dependencies = [
 name = "wasm-gravity"
 version = "0.1.4"
 dependencies = [
- "getrandom 0.4.3",
  "phy",
  "rand",
  "wgame",
@@ -2697,7 +2686,7 @@ name = "wgame"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "glam 0.33.7",
+ "glam",
  "half",
  "log",
  "rgb",
@@ -2757,7 +2746,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
- "glam 0.33.7",
+ "glam",
  "half",
  "hashbrown 0.17.1",
  "log",
@@ -2774,7 +2763,7 @@ dependencies = [
  "bytemuck",
  "derivative",
  "derive_more",
- "glam 0.33.7",
+ "glam",
  "half",
  "log",
  "rgb",
@@ -2794,7 +2783,7 @@ dependencies = [
  "bytemuck",
  "derivative",
  "euclid",
- "glam 0.33.7",
+ "glam",
  "half",
  "hashbrown 0.17.1",
  "rgb",
@@ -2810,7 +2799,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
- "glam 0.33.7",
+ "glam",
  "half",
  "rgb",
  "wgame-gfx",
@@ -2850,7 +2839,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
- "glam 0.33.7",
+ "glam",
  "half",
  "log",
  "minijinja",

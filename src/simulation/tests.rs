@@ -11,10 +11,10 @@ fn pair(positions: [DVec2; 2]) -> Simulation {
 }
 
 #[test]
-fn force_law_and_pair_symmetry_match_the_original() {
+fn softened_force_and_pair_symmetry() {
     let mut sim = pair([DVec2::new(-100.0, 0.0), DVec2::new(100.0, 0.0)]);
     sim.compute_gravity();
-    let expected = 1e5 / (200.0_f64.powi(2) + 120.0_f64.powi(2));
+    let expected = 1e5 * 10.0 * 200.0 / (200.0_f64.powi(2) + SOFTENING.powi(2)).powf(1.5);
     assert!((sim.bodies[0].motion.deriv.velocity.x - expected).abs() < 1e-12);
     assert_eq!(
         sim.bodies[0].motion.deriv.velocity,
@@ -86,4 +86,93 @@ fn seeded_simulation_is_reproducible_and_stays_finite_with_full_trails() {
         );
     }
     assert_eq!(sim.time(), 8.0);
+}
+
+#[test]
+fn unequal_masses_conserve_momentum() {
+    let mut sim = pair([DVec2::new(-100.0, 0.0), DVec2::new(100.0, 0.0)]);
+    sim.bodies[1].mass = 30.0;
+    sim.compute_gravity();
+    assert!(
+        (sim.bodies[0].motion.deriv.velocity + sim.bodies[1].motion.deriv.velocity * 3.0).length()
+            < 1e-10
+    );
+    for _ in 0..240 {
+        sim.step();
+    }
+    let momentum: DVec2 = sim.bodies.iter().map(|b| b.motion.velocity * b.mass).sum();
+    assert!(momentum.length() < 1e-8);
+}
+
+#[test]
+fn solar_orbits_and_moons_remain_bound_for_three_minutes() {
+    let mut sim = Simulation::solar_system();
+    assert_eq!(sim.body_count(), 10);
+    let radii: Vec<f64> = sim.bodies[1..8]
+        .iter()
+        .map(|b| b.motion.position.length())
+        .collect();
+    for _ in 0..STEPS_PER_SECOND * 180 {
+        sim.step();
+        for (i, radius) in radii.iter().enumerate() {
+            let distance = sim.bodies[i + 1]
+                .motion
+                .position
+                .distance(sim.bodies[0].motion.position);
+            assert!(
+                (radius * 0.7..radius * 1.3).contains(&distance),
+                "planet {i}: {distance} vs {radius}"
+            );
+        }
+        for (moon, host) in [(8, 5), (9, 6)] {
+            let distance = sim.bodies[moon]
+                .motion
+                .position
+                .distance(sim.bodies[host].motion.position);
+            assert!((8.0..30.0).contains(&distance), "moon {moon}: {distance}");
+        }
+    }
+}
+
+#[test]
+fn inserted_body_has_exact_properties_and_no_history_before_birth() {
+    let mut sim = Simulation::solar_system();
+    for _ in 0..STEPS_PER_SECOND * 8 {
+        sim.step();
+    }
+    let spec = BodySpec {
+        mass: 12.5,
+        color: Rgba::new(0.4, 0.8, 1.0, 1.0),
+        velocity: DVec2::new(-3.25, 41.75),
+    };
+    let position = DVec2::new(600.0, 300.0);
+    sim.add_body(position, spec).unwrap();
+    let body = sim.bodies.last().unwrap();
+    assert_eq!(body.mass, spec.mass);
+    assert_eq!(body.color, spec.color);
+    assert_eq!(body.motion.position, position);
+    assert_eq!(body.motion.velocity, spec.velocity);
+    let mut points = Vec::new();
+    body.trail
+        .write_points(position, sim.steps, body.radius, &mut points);
+    assert_eq!(points.len(), 1);
+    sim.step();
+    let body = sim.bodies.last().unwrap();
+    body.trail
+        .write_points(body.motion.position, sim.steps, body.radius, &mut points);
+    assert_eq!(points.len(), 2);
+    assert!(points[1].width > points[0].width * 0.99);
+    let count = sim.body_count();
+    assert!(
+        sim.add_body(
+            position,
+            BodySpec {
+                mass: f64::NAN,
+                ..spec
+            }
+        )
+        .is_err()
+    );
+    assert!(sim.add_body(DVec2::splat(f64::INFINITY), spec).is_err());
+    assert_eq!(sim.body_count(), count);
 }

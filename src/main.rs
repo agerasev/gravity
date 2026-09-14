@@ -2,7 +2,9 @@
 
 mod app;
 mod controls;
+mod gesture;
 mod timing;
+mod viewport;
 
 #[wgame::window(title = "Gravity", size = (1200, 900), resizable = true, vsync = true)]
 async fn main(window: wgame::Window<'_>) -> wgame::Result<()> {
