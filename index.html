@@ -1,17 +1,30 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=0.6"/>
-    <title>Rust WebAssembly test</title>
-    <link rel="shortcut icon" type="image/ico" href="./wasm/res/favicon.ico" />
-    <script type="text/javascript" src="./wasm/res/prelude.js"></script>
-    <script type="text/javascript" src="./wasm/res/math.js"></script>
-    <script type="text/javascript" src="./wasm/res/interop.js"></script>
-    <script type="text/javascript" src="./wasm/res/canvas.js"></script>
-    <script type="text/javascript" src="./wasm/res/main.js"></script>
-    <link rel="stylesheet" href="./wasm/res/style.css"/>
-</head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gravity</title>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; }
+    #content { width: 100%; height: 100%; contain: size; }
+    /* winit's ResizeObserver tracks the viewport-sized CSS canvas. */
+    canvas { display: block; width: 100% !important; height: 100% !important; outline: none; touch-action: none; }
+  </style>
+
+<script type="module">
+import init, * as bindings from '/gravity/gravity-bdfc27d78bcb603e.js';
+const wasm = await init({ module_or_path: '/gravity/gravity-bdfc27d78bcb603e_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+<link rel="modulepreload" href="/gravity/gravity-bdfc27d78bcb603e.js" crossorigin="anonymous" integrity="sha384-XR6XrQgbk9m8uf+o3UeBTbUC5Mh0pCs4W72mx3x0kcSUTTwogDy8wEUqjPSvyWJj"><link rel="preload" href="/gravity/gravity-bdfc27d78bcb603e_bg.wasm" crossorigin="anonymous" integrity="sha384-X6O7O74HvzgS0Rkya5JUWBlO935q95btJ5SUpl2sUaVbBYG6n9rF7hsIgJTmmjtA" as="fetch" type="application/wasm"></head>
 <body>
+  <div id="content"><canvas id="canvas" tabindex="0" aria-label="Gravity sandbox; N switches pan and launch tools, Space pauses, P opens controls"></canvas></div>
+  <noscript>Gravity requires JavaScript and WebGL2.</noscript>
 </body>
 </html>
