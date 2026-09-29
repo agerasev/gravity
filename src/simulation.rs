@@ -12,6 +12,8 @@ const SOFTENING: f64 = 8.0;
 pub const SYSTEM_VIEW_SIZE: f64 = 1800.0;
 
 mod collision;
+mod prediction;
+pub use prediction::Prediction;
 
 /// A body's initial conditions, in deliberately fictional world units.
 #[derive(Clone, Copy, Debug)]
@@ -53,6 +55,28 @@ pub struct Simulation {
 }
 
 impl Simulation {
+    /// Copy the physical state without copying drawing history or solver scratch.
+    fn fork_physics(&self) -> Self {
+        Self {
+            bodies: self
+                .bodies
+                .iter()
+                .map(|body| {
+                    Body::new(
+                        body.motion.position,
+                        body.motion.velocity,
+                        body.mass,
+                        body.color,
+                    )
+                })
+                .collect(),
+            steps: self.steps,
+            retired_trails: Vec::new(),
+            gravity: self.gravity,
+            collisions: self.collisions,
+        }
+    }
+
     /// Compact, approximate circular orbits, with zero net momentum.
     pub fn solar_system() -> Self {
         let star_mass = 4000.0;

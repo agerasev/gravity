@@ -101,6 +101,7 @@ impl Simulation {
                 channel(|c| c.a),
             );
             let mut merged = Body::new(position, velocity, mass, color);
+            merged.tracked = group.iter().any(|body| body.tracked);
             // Old trails describe separate trajectories; begin a fresh trail
             // instead of drawing a spurious connection to one parent's past.
             merged.trail = Trail::at_step(position, self.steps + 1);

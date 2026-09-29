@@ -40,25 +40,13 @@ fn release_pointer(
     if gesture.as_ref().is_none_or(|(owner, _)| *owner != pointer) {
         return;
     }
-    if let Some((
-        _,
-        Gesture::Launch {
-            position,
-            spec,
-            aimed,
-            ..
-        },
-    )) = gesture.take()
-    {
+    if let Some((_, Gesture::Launch { position, spec, .. })) = gesture.take() {
         if point.x < 0.0 || point.y < 0.0 || point.x >= size.x || point.y >= size.y {
             controls.message = "Launch cancelled outside playground".into();
             return;
         }
         match simulation.add_body(position, spec) {
             Ok(()) => {
-                if aimed {
-                    controls.set_velocity(spec.velocity);
-                }
                 controls.message = "Body launched".into();
             }
             Err(error) => controls.message = error.into(),
@@ -151,12 +139,7 @@ pub async fn run(mut host: impl WindowHost, shared: Rc<RefCell<Controls>>) -> Re
                                     controls.message = "Release to launch; Esc to cancel".into();
                                     gesture = Some((
                                         button,
-                                        Gesture::Launch {
-                                            pixel: point,
-                                            position: view.world(point, size),
-                                            spec,
-                                            aimed: false,
-                                        },
+                                        Gesture::launch(point, view.world(point, size), spec),
                                     ));
                                 }
                                 Err(error) => controls.message = error.into(),
@@ -203,6 +186,26 @@ pub async fn run(mut host: impl WindowHost, shared: Rc<RefCell<Controls>>) -> Re
         let now = Instant::now();
         let elapsed = now - last;
         last = now;
+        if let Some((_, active)) = &mut gesture {
+            let visible =
+                (frame.input().window_focused || smoke) && frame.visible() && !reset_clock;
+            match active.advance_prediction(&simulation, elapsed, visible) {
+                Ok(()) => {
+                    if let Gesture::Launch { spec, .. } = &*active {
+                        controls.message = format!(
+                            "Forecast +{:.2}s | velocity {:.2}, {:.2}",
+                            active.forecast_time().unwrap_or(0.0),
+                            spec.velocity.x,
+                            spec.velocity.y
+                        );
+                    }
+                }
+                Err(error) => {
+                    controls.message = error.into();
+                    gesture = None;
+                }
+            }
+        }
         let aiming = gesture.as_ref().is_some_and(|(_, g)| g.is_launch());
         let running = !controls.paused
             && (frame.input().window_focused || smoke)

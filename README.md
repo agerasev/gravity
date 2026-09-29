@@ -32,14 +32,24 @@ Zoom in on the outer gas giants to see their moons.
   text is rasterized at the display resolution.
 - **Create:** **Launch body** is selected at startup. Click a
   field to edit it with normal text-selection controls; Tab advances between
-  widgets. Game shortcuts are inactive while editing. Set mass, color as `#RRGGBB`, and X/Y
-  velocity in world units per second (positive X right, positive Y down).
-- **Launch:** click the world to place a body with the entered velocity, or drag
-  from its spawn point in the desired direction. The arrow shows one second of
-  initial travel, ignoring gravity; dragging updates the velocity readout and
-  saves those values on release, rounded to two decimal places. The simulation
-  temporarily pauses while aiming. Release over the panel or press Escape to
-  cancel. Bodies can also be placed while manually paused.
+  widgets. Game shortcuts are inactive while editing. Set mass with the
+  logarithmic slider or numeric field. Choose a color from the picker or enter
+  its `#RRGGBB` value; the two stay synchronized.
+- **Launch:** click the world to place a stationary body, or drag from its spawn
+  point in the desired direction to set velocity. The arrow shows predicted
+  simulated motion: hold the pointer still to grow the curved forecast at 12×
+  simulation speed (one second of holding adds approximately 12 future seconds).
+  The forecast evolves a separate copy of the whole system, including gravity
+  from the launched body and the current collision rules; after merging, it
+  follows the merged body. Movement of at least 6 logical pixels from the last
+  accepted aim restarts the forecast; smaller movements leave both the preview
+  and launch velocity unchanged, including on release. Drag velocity is 0.2 times
+  the world-space offset, allowing longer drags for finer speed control. The
+  readout shows X/Y velocity in world units per second (positive X right,
+  positive Y down), rounded to two decimal places. Release launches with that
+  velocity; the next click again starts with zero velocity. The live system
+  stays paused while aiming, and the preview also works when manually paused.
+  Release over the panel or press Escape to cancel.
 - **Pause:** Space or the panel button. Losing focus pauses automatically.
   **P** toggles the panel; **Escape** on the playground cancels a launch,
   otherwise closes. Click the playground to focus its keyboard shortcuts.
@@ -110,4 +120,6 @@ The smoke mode opens a real window, advances even when unfocused, renders 12
 frames, then exits. CPU tests
 cover mass-dependent forces, momentum conservation, three minutes of planetary
 and moon orbits, body creation and validation, precision, trail trimming, time
-accumulation, body-setting validation, launch velocities, and camera transforms.
+accumulation, body-setting validation, launch velocities, camera transforms,
+and agreement between forecasts and actual launches. Forecast drawing samples
+are thinned during long holds to bound memory; physics keeps the same step size.

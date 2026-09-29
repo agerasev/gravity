@@ -44,6 +44,8 @@ pub(crate) struct Body {
     pub radius: f64,
     pub color: Rgba<f32>,
     pub trail: Trail,
+    /// Marks the proposed body in a forecast, including its merged descendants.
+    pub tracked: bool,
 }
 
 impl Body {
@@ -54,6 +56,7 @@ impl Body {
             radius: crate::body_radius(mass),
             color,
             trail: Trail::new(position),
+            tracked: false,
         }
     }
 }
