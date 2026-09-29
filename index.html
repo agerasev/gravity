@@ -10,10 +10,10 @@
     /* winit's ResizeObserver tracks the viewport-sized CSS canvas. */
     canvas { display: block; width: 100% !important; height: 100% !important; outline: none; touch-action: none; }
   </style>
-
+  
 <script type="module">
-import init, * as bindings from '/gravity/gravity-bdfc27d78bcb603e.js';
-const wasm = await init({ module_or_path: '/gravity/gravity-bdfc27d78bcb603e_bg.wasm' });
+import init, * as bindings from '/gravity/gravity-100d7ae19217536d.js';
+const wasm = await init({ module_or_path: '/gravity/gravity-100d7ae19217536d_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -22,7 +22,7 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-<link rel="modulepreload" href="/gravity/gravity-bdfc27d78bcb603e.js" crossorigin="anonymous" integrity="sha384-XR6XrQgbk9m8uf+o3UeBTbUC5Mh0pCs4W72mx3x0kcSUTTwogDy8wEUqjPSvyWJj"><link rel="preload" href="/gravity/gravity-bdfc27d78bcb603e_bg.wasm" crossorigin="anonymous" integrity="sha384-X6O7O74HvzgS0Rkya5JUWBlO935q95btJ5SUpl2sUaVbBYG6n9rF7hsIgJTmmjtA" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/gravity/gravity-100d7ae19217536d.js" crossorigin="anonymous" integrity="sha384-bv5GieQt2eLHUvGqRqgzEtuk5dmhByer/htFjVsCzj69Af68I0ETp8Etz5Go7Oi5"><link rel="preload" href="/gravity/gravity-100d7ae19217536d_bg.wasm" crossorigin="anonymous" integrity="sha384-lEsiS0kqvS/+zpYNkn3trLl2dH5AuRafBpU7YCpz6O5zhTocieZ6YE3RO9poW6Xh" as="fetch" type="application/wasm"></head>
 <body>
   <div id="content"><canvas id="canvas" tabindex="0" aria-label="Gravity sandbox; N switches pan and launch tools, Space pauses, P opens controls"></canvas></div>
   <noscript>Gravity requires JavaScript and WebGL2.</noscript>

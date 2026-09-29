@@ -1,5 +1,12 @@
 {
-  "source_commit": "6430ac71e8134635a338eb7699829f09c5025cf4",
+  "source_commit": "7a0483763f3a7637bbc4a876923f484bfb9f9a4e",
   "source_branch": "master",
-  "public_url": "/gravity/"
+  "public_url": "/gravity/",
+  "library_versions": {
+    "phy": "0.2.0",
+    "wgame": "0.1.0",
+    "wgame-egui": "0.1.0"
+  },
+  "built_at": "2026-09-29T09:20:04.970164+00:00",
+  "build_command": "./scripts/build-web.sh /gravity/"
 }
