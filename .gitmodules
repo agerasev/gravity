@@ -1,6 +1,0 @@
-[submodule "wgame"]
-	path = wgame
-	url = ../wgame/
-[submodule "phy"]
-	path = phy
-	url = ../phy

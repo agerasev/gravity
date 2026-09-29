@@ -17,10 +17,10 @@ desktop = ["wgame/desktop", "wgame-egui/desktop"]
 web = ["wgame/web", "wgame-egui/web"]
 
 [dependencies]
-phy = { path = "phy" }
+phy = "0.2.0"
 rand = { version = "0.10.2", default-features = false, features = ["std"] }
-wgame = { path = "wgame/wgame", default-features = false, features = [
+wgame = { version = "0.1.0", default-features = false, features = [
     "shapes",
 ] }
 
-wgame-egui = { path = "wgame/wgame-egui", default-features = false }
+wgame-egui = { version = "0.1.0", default-features = false }

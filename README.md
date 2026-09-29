@@ -1,18 +1,11 @@
 # Gravity
 
 A gravitational sandbox using `wgame` for desktop/WebGL2 rendering and `phy`
-for RK4 integration. Both libraries are pinned Git submodules inside this repo.
-
-Clone with submodules, or initialize them in an existing checkout:
+for RK4 integration. Dependencies come from crates.io.
 
 ```sh
-git clone --recurse-submodules https://github.com/agerasev/gravity.git
+git clone https://github.com/agerasev/gravity.git
 cd gravity
-# For an existing checkout (also after pulling new submodule revisions):
-git submodule update --init --recursive
-```
-
-```sh
 cargo run --locked --release
 ```
 
@@ -123,3 +116,23 @@ and moon orbits, body creation and validation, precision, trail trimming, time
 accumulation, body-setting validation, launch velocities, camera transforms,
 and agreement between forecasts and actual launches. Forecast drawing samples
 are thinned during long holds to bound memory; physics keeps the same step size.
+
+## Local library development
+
+Normal builds use the crates.io releases recorded in `Cargo.lock`. To work on
+the libraries alongside this game, check out `../wgame` and `../phy` and opt in
+from this repository's root:
+
+```sh
+cargo run --config .cargo/local-libs.toml --release
+```
+
+The patches in [`.cargo/local-libs.toml`](.cargo/local-libs.toml) select the sibling
+checkouts, including wgame's internal workspace dependencies. Local package
+versions must still satisfy `Cargo.toml`. Local builds update `Cargo.lock`; keep
+those changes out of release commits and restore the committed lockfile when
+returning to registry builds.
+
+For repeated local builds or Trunk, copy that file to the ignored
+`.cargo/config.toml` and run `cargo check` once to update the local lockfile. Remove
+that config and restore the committed lockfile to use the published versions again.
